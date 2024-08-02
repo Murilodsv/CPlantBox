@@ -93,7 +93,7 @@ for i in range(len(modules)):
         error.append(bonnamod[i])
 
 if len(error) > 0:
-    print("Modules not properly loaded. Please try running 'module load <module_name>' for the following modules: ".format(" ".join(error)))
+    print("Modules not properly loaded. Please try running 'module load <module_name>' for the following modules: "+" ".join(error))
     raise Exception('missing module')
 
 # cmake
