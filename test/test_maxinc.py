@@ -32,6 +32,10 @@ rs.readParameters(rootparname)
 #--- Set scale elongaton according to tutorial example "example5b_scaleelongation.py"
 scale_elongation = rb.EquidistantGrid1D(0, -soildepth, layers)
 scale_elongation.data = np.ones((layers-1,))
+
+se = rb.ProportionalElongation()
+se.setBaseLookUp(scale_elongation)
+
 for p in rs.getRootRandomParameter():
     p.f_se = scale_elongation  # set scale elongation function
 
@@ -44,22 +48,22 @@ for s in range(0,simtime):
     # a dummy fixed max increment [this would be a dynamic model, e.g. simplace]    
     maxinc = 10.
 
-    # vertical reduction e.g. soil strenght [assuming no reduction = 1]
+    # vertical reduction e.g. soil strenght as function of soil moisture [1: no reduction]
     re_reduction = np.ones((layers-1,))
     
-    # testing some re_reduction at steps 110-130
+    # testing 90% reduction in whole profile at steps 110-130
     if s>=110 and s<=130:
         re_reduction = re_reduction*0.1
     
-    # update scale elongation
+    # reset scale elongation
     scale_elongation = rb.EquidistantGrid1D(0,-soildepth, layers)     
     scale_elongation.data = np.array(re_reduction) # set scale elongation to re_reduction from simplace
-    for p in rs.getRootRandomParameter():        
-        p.f_se = scale_elongation
     
-    # get scale elongation as a ProportionalElongation class [for rs.simulate() 4 args signature]
     se = rb.ProportionalElongation()
     se.setBaseLookUp(scale_elongation)
+    
+    for p in rs.getRootRandomParameter():        
+        p.f_se = scale_elongation
         
     inc = 0.0        
     if(maxinc > 0):
