@@ -713,7 +713,14 @@ void Organ::createSegments(double l, double dt, bool verbose, int PhytoIdx)
                 }
 				if( PhytoIdx >= 0){
 					this->epsilonDx += sdx;
-				}else{this->epsilonDx = sdx;}
+				}else{
+					if (verbose && (sdx > length)) {
+                        std::cout <<"Organ::createSegments(): OrganType = "<<organType()<<" length increment below dxMin threshold ("<< sdx <<" < "<< dxMin() << ") but length is still = 0. Below threshold increment is reset to avoid negative length.\n";
+					    this->epsilonDx = 0.;
+                    }else{
+						this->epsilonDx = sdx;
+					}					
+				}
                 return;
             }
             this->epsilonDx = 0; //no residual
