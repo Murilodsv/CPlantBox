@@ -1,68 +1,25 @@
+---
 
-<img src="Logo_long_white.png" alt="drawing" width="400"/>
+### This is CPlantBox with the installation script for BonnaHPC
 
-# Hi, I am CPlantBox
-[![Plant Simulations -- 8K resolution](https://media.giphy.com/media/LmBztw7mNwluJPJ3cU/giphy.gif)](https://www.youtube.com/watch?v=jNbvjW-WFvk "CPlantBox Simulations -- 8K resolution")
+This is a stabled forked version of CPlantBox/master Aug-2024 
+- https://github.com/Plant-Root-Soil-Interactions-Modelling/CPlantBox/tree/1089fe0421e24e834f69720598b0789cc7079148
 
-## I can :
-1. Create multiple plant structures
-2. Simulate the carbon transport (coupling with PiafMunch) and water flow inside of the plant
-3. Simulate the solute transport and water flow in the soil (coupling with DuMux)
+To install in **BonnaHPC** navigate to the desired installation folder (e.g. ```~/workspace```) and use the shell script below:
 
-
-## Try me 1 click
-You can discover CPlantBox with 
-[this web-based application](http://cplantbox.com) designed for conduct and visualize plant growth simulations. It is part of Xiaoran Zhou's PhD thesis. the source code is avialable at <a href="https://github.com/xiaoranzhou/cpb">github-xiaoranzhou 
-
-Cloud-based notebooks are also available:
-1. [Structure definition and analysis](https://mybinder.org/v2/gh/Plant-Root-Soil-Interactions-Modelling/CPlantBox/workshop_1111?labpath=tutorial%2Fjupyter%2Fworkshop_11_11_2024%2F1_cplantbox.ipynb)
-2. [water flow in CPlantBox](https://mybinder.org/v2/gh/Plant-Root-Soil-Interactions-Modelling/CPlantBox/workshop_1111?labpath=tutorial%2Fjupyter%2Fworkshop_11_11_2024%2F2_water_flux.ipynb)
-
-# build local
-## semi-automated CPlantBox (with dumux-rosi) installation via python script (recommended)
-### Linux
-This installation method requires ubuntu >= 20.04 and python >= 3.7.\
-For CPlantBox <ins>__without__</ins> the dumux-rosi extension, download the python file "installCPlantBox.py".\
-Run
 ```bash
-sudo apt-get update
-sudo apt-get upgrade
-[ ! -d 'cpbenv' ] && python3 -m venv cpbenv &&  source cpbenv/bin/activate ||  source cpbenv/bin/activate
-wget https://raw.githubusercontent.com/Plant-Root-Soil-Interactions-Modelling/CPlantBox/master/installCPlantBox.py
-python3 installCPlantBox.py
-```
-It will create a "CPB" folder and install inside the dependencies necessary to run CPlantBox.\
-For CPlantBox <ins>__with__</ins> the dumux-rosi extension, download the python file "installDumuxRosi_Ubuntu.py" (based on the dumux installation file).\
-run
-```bash
-sudo apt-get update
-sudo apt-get upgrade
-[ ! -d 'cpbenv' ] && python3 -m venv cpbenv &&  source cpbenv/bin/activate ||  source cpbenv/bin/activate
-wget https://raw.githubusercontent.com/Plant-Root-Soil-Interactions-Modelling/CPlantBox/master/installDumuxRosi_Ubuntu.py
-python3 installDumuxRosi_Ubuntu.py
-```
-This will create a "DUMUX" folder and install inside the dependencies necessary to run dumux-rosi.
-CPlantBox is setup within the virtual environment 'cpbenv'. \
-**Do not forget to reactivate the 'cpbenv' environment when using CPlantBox:**
-```bash
-source cpbenv/bin/activate
-```
-This script might work on other linux OS but has not been tested.
+#!/bin/bash
+wget https://raw.githubusercontent.com/Murilodsv/CPlantBox/master/installCPlantBoxBonna.py
 
-### windows
-CPlantBox is currently not available on windows. 
-Some pointers to setup a linux environment on windows are given on the [wiki](https://github.com/Plant-Root-Soil-Interactions-Modelling/CPlantBox/wiki/Help-for-windows-users).
+module purge
+module load Python/3.8.2-GCCcore-9.3.0
+module load VTK/8.2.0-foss-2020a-Python-3.8.2
+module load CMake/3.16.4-GCCcore-9.3.0
 
-## manual linux installation 
-Clone the repository by running:
-```bash
-git clone --depth 1 -b master https://github.com/Plant-Root-Soil-Interactions-Modelling/CPlantBox.git
+python3 installCPlantBoxBonna.py
 ```
-Run CMake which configures the CPlantBox libraries by 
-```bash
-cmake . && make
-```
-in the root folder, and run some Python tutorial examples (see tutorial/latex/PlantBox_RootSytem), e.g
+
+Examples are provided in "CPlantBox/tutorial/examples/". For instance:
 ```bash
 cd tutorial/examples/python
 python3 example1a.py
