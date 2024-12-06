@@ -68,7 +68,7 @@ show_message("(2/3) Step completed. All prerequistes found.")
 # Adapted CPlantBox fork in stable master version for BonnaCluster
 GitRepo = "https://github.com/Murilodsv/CPlantBox.git"
 if not os.path.exists("CPlantBox"):
-    subprocess.run(['git', 'clone', '--depth','1','-b', 'master', GitRepo])
+    subprocess.run(['git', 'clone', '--depth','1','-b', 'bonna_hpc', GitRepo])
     os.chdir("CPlantBox")
 else:
     os.chdir("CPlantBox")
