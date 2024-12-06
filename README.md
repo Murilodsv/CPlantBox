@@ -2,14 +2,14 @@
 
 ### This is CPlantBox with the installation script for BonnaHPC
 
-This is a stabled forked version of CPlantBox/master Aug-2024 
-- https://github.com/Plant-Root-Soil-Interactions-Modelling/CPlantBox/tree/1089fe0421e24e834f69720598b0789cc7079148
+This is a stabled forked version of CPlantBox/master Nov-2024 
+- https://github.com/Plant-Root-Soil-Interactions-Modelling/CPlantBox/tree/87edb7e229e333aef1fc9976abfff5c355b956cf
 
 To install in **BonnaHPC** navigate to the desired installation folder (e.g. ```~/workspace```) and use the shell script below:
 
 ```bash
 #!/bin/bash
-wget https://raw.githubusercontent.com/Murilodsv/CPlantBox/master/installCPlantBoxBonna.py
+wget -O installCPlantBoxBonna.py https://raw.githubusercontent.com/Murilodsv/CPlantBox/master/installCPlantBoxBonna.py
 
 module purge
 module load Python/3.8.2-GCCcore-9.3.0
