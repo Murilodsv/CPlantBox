@@ -21,11 +21,35 @@ python3 installCPlantBoxBonna.py
 
 Examples are provided in "CPlantBox/tutorial/examples/". For instance:
 ```bash
-cd CPlantBox/tutorial/examples/
-python3 example1a_small.py
+cd tutorial/examples/python
+python3 example1a.py
 ```
 
-Further details in the main repository:
-- https://github.com/Plant-Root-Soil-Interactions-Modelling/CPlantBox
+The dependecies are listed in the requirements.txt file.
+## Installation on the JSC agrocluster
+Refer to the wiki:\
+https://github.com/Plant-Root-Soil-Interactions-Modelling/CPlantBox/wiki/CPlantBox-on-the-J%C3%BClich-Supercomputer-cluster
+# Folder sructure
+
+`/modelparameter`		Plant parameter files\
+`/src`			CPlantBox C++ codes\
+`/test`   Python tests for all CPlantBox classes\
+`/tutorial` 		learn to use CPlantBox\
+`/experimental`		Specific applications (in sub-folders). contrary to scripts in `/tutorial`, might not be kept up to date
+
+# Code documentation
+
+Create the documentation by running doxygen in the folder 
+$ doxygen doxy_config
+
+The documentation will be located in the folder /doc. Compile doc/latex/refman.tex to generate the full doxygen documentation in doc/latex/refman.pdf.
+
+Collaboration diagrams give an overview of the code in folder /docs.
+
+# Examples
+Simulation videos availabe in Youtube Channel https://www.youtube.com/channel/UCPK-pFfpK94jiamgwHxX32Q
+
+[![Plant Simulations -- 8K resolution](https://media.giphy.com/media/LmBztw7mNwluJPJ3cU/giphy.gif)](https://www.youtube.com/watch?v=jNbvjW-WFvk "CPlantBox Simulations -- 8K resolution")
+
 
 
