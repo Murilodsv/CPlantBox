@@ -67,6 +67,7 @@ MappedSegments::MappedSegments(std::vector<Vector3d> nodes, std::vector<Vector2i
 	organTypes.resize(segments.size());
 	std::fill(organTypes.begin(), organTypes.end(), Organism::ot_root);
 	setSubTypes(0);
+    assert((nodes.size()==nodeCTs.size()) && "MappedSegments::MappedSegments: Unequal vector sizes nodes and nodeCTs");
 	assert((segments.size()==radii.size()) && "MappedSegments::MappedSegments: Unequal vector sizes segments and radii");
 	assert((segments.size()==subTypes.size()) && "MappedSegments::MappedSegments: Unequal vector sizes segments and subTypes");
 	assert((segments.size()==organTypes.size()) && "MappedSegments::MappedSegments: Unequal vector sizes segments and organTypes");
@@ -433,13 +434,13 @@ std::vector<double> MappedSegments::segLength() const {
 }
 
 /**
- * Returns soil matric potential per segment, for a given soil sx connected gy the mapper rs->seg2cell
+ * Returns soil matric potential per segment, for a given soil sx connected gy the mapper rs->seg2cell [TODO make more general perSegment(value_perCell)...]
  */
-std::vector<double> MappedSegments::getHs(const std::vector<double>& sx) {
+std::vector<double> MappedSegments::getHs(const std::vector<double> sx) const {
     double psi_air = -954378;
     std::vector<double> hs = std::vector<double>(this->segments.size());
     for (int si = 0; si<this->segments.size(); si++) {
-        int cellIndex = this->seg2cell[si];
+        int cellIndex = this->seg2cell.at(si);
         if (cellIndex>=0) {
             if(sx.size()>1) {
                 hs[si] = sx.at(cellIndex);
@@ -452,6 +453,39 @@ std::vector<double> MappedSegments::getHs(const std::vector<double>& sx) {
     }
     return hs;
 }
+
+/**
+ * Calculates the z-coordinates of the segment
+ */
+std::vector<double> MappedSegments::getSegmentZ() const {
+    std::vector<double> z = std::vector<double>(segments.size());
+    for (int i=0; i<z.size(); i++) {
+        z[i] = nodes[segments[i].y].z; // 0.5*(nodes[segments[i].x].z + nodes[segments[i].y].z);
+    }
+    return z;
+}
+
+/**
+ * Calculates the total potential from the matric potential
+ */
+std::vector<double> MappedSegments::matric2total(std::vector<double> sx) const {
+    std::vector<double> b = this->getSegmentZ();
+    assert(sx.size() == b.size());
+    std::transform(sx.begin( ), sx.end( ), b.begin( ), sx.begin( ),std::plus<double>( ));
+    return sx;
+}
+
+/**
+ * Calculates the matric potential from the tortal potential
+ */
+std::vector<double> MappedSegments::total2matric(std::vector<double> sx) const{
+    std::vector<double> b = this->getSegmentZ();
+    assert(sx.size() == b.size());
+    std::transform(sx.begin( ), sx.end( ), b.begin( ), sx.begin( ),std::minus<double>( ));
+    return sx;
+}
+
+
 
 /**
  * Returns seg2cell as vector
@@ -471,16 +505,6 @@ std::vector<int> MappedSegments::getSegmentMapper() const {
     return mapper;
 }
 
-/**
- * Calculates the z-coordinates of the segment
- */
-std::vector<double> MappedSegments::getSegmentZ() const {
-    std::vector<double> z = std::vector<double>(segments.size());
-    for (int i=0; i<z.size(); i++) {
-        z[i] = 0.5*(nodes[segments[i].x].z + nodes[segments[i].y].z);
-    }
-    return z;
-}
 
 
 
@@ -757,7 +781,7 @@ void MappedPlant::simulate(double dt, bool verbose)
 
 		radii.at(segIdx) = so->param()->a;
 		organTypes.at(segIdx) = so->organType();
-		subTypes.at(segIdx) = st2newst[std::make_tuple(organTypes[segIdx],so->param()->subType)];//new st
+		subTypes.at(segIdx) = so->param()->subType; //  st2newst[std::make_tuple(organTypes[segIdx],so->param()->subType)];//new st
 
 		if(organTypes.at(segIdx) == Organism::ot_leaf) //leaves can be cylinder, cuboid or characterized by user-defined 2D shape
 		{

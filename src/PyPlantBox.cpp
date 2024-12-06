@@ -450,6 +450,7 @@ PYBIND11_MODULE(plantbox, m) {
     py::class_<ProportionalElongation, SoilLookUp, std::shared_ptr<ProportionalElongation>>(m, "ProportionalElongation")
             .def(py::init<>())
             .def("setScale", &ProportionalElongation::setScale)
+            .def("getScale", &ProportionalElongation::getScale)
             .def("setBaseLookUp", &ProportionalElongation::setBaseLookUp)
             .def("__str__",&ProportionalElongation::toString);
     py::class_<Grid1D, SoilLookUp, std::shared_ptr<Grid1D>>(m, "Grid1D")
@@ -835,7 +836,7 @@ PYBIND11_MODULE(plantbox, m) {
 			.def("setTropism", &RootSystem::setTropism)
             .def("simulate",(void (RootSystem::*)(double,bool)) &RootSystem::simulate, py::arg("dt"), py::arg("verbose") = false)
             .def("simulate",(void (RootSystem::*)()) &RootSystem::simulate)
-            .def("simulate",(void (RootSystem::*)(double, double, ProportionalElongation*, bool)) &RootSystem::simulate)
+            .def("simulate",(void (RootSystem::*)(double, double, std::shared_ptr<ProportionalElongation>, bool)) &RootSystem::simulate)
             .def("getRoots", &RootSystem::getRoots)
             .def("initCallbacks", &RootSystem::initCallbacks)
             .def("createTropismFunction", &RootSystem::createTropismFunction)
@@ -845,8 +846,6 @@ PYBIND11_MODULE(plantbox, m) {
             .def("getShootSegments", &RootSystem::getShootSegments)
             .def("getRootTips", &RootSystem::getRootTips)
             .def("getRootBases", &RootSystem::getRootBases)
-            .def("push",&RootSystem::push)
-            .def("pop",&RootSystem::pop)
             .def("write", &RootSystem::write);
     /*
      * MappedOrganism.h
@@ -870,9 +869,11 @@ PYBIND11_MODULE(plantbox, m) {
         .def("segOuterRadii",&MappedSegments::segOuterRadii, py::arg("type") = 0, py::arg("vols") = std::vector<double>(0))
 		.def("segLength",&MappedSegments::segLength)
 		.def("getHs",&MappedSegments::getHs)
-        .def("getNumberOfMappedSegments",&MappedSegments::getNumberOfMappedSegments)
-        .def("getSegmentMapper",&MappedSegments::getSegmentMapper)
         .def("getSegmentZ",&MappedSegments::getSegmentZ)
+        .def("matric2total",&MappedSegments::matric2total)
+        .def("total2matric",&MappedSegments::total2matric)
+		.def("getNumberOfMappedSegments",&MappedSegments::getNumberOfMappedSegments)
+        .def("getSegmentMapper",&MappedSegments::getSegmentMapper)
         .def_readwrite("nodes", &MappedSegments::nodes)
         .def_readwrite("nodeCTs", &MappedSegments::nodeCTs)
         .def_readwrite("segments", &MappedSegments::segments)
@@ -988,6 +989,7 @@ PYBIND11_MODULE(plantbox, m) {
      */
     py::class_<PlantHydraulicParameters, std::shared_ptr<PlantHydraulicParameters>>(m, "PlantHydraulicParameters")
             .def(py::init<>())
+            .def(py::init<std::shared_ptr<CPlantBox::MappedSegments>>())
             .def("setKr",py::overload_cast<std::vector<double>, std::vector<double>, bool> (&PlantHydraulicParameters::setKr),
                     py::arg("values"), py::arg("age") = std::vector<double>(0), py::arg("verbose")=true)
             .def("setKx",py::overload_cast<std::vector<double>, std::vector<double>, bool> (&PlantHydraulicParameters::setKx),
@@ -1008,6 +1010,7 @@ PYBIND11_MODULE(plantbox, m) {
             .def("getEffKr", &PlantHydraulicParameters::getEffKr)
             .def("getKr", &PlantHydraulicParameters::getKr)
             .def("getKx", &PlantHydraulicParameters::getKx)
+            .def_readwrite("ms", &PlantHydraulicParameters::ms)
             .def_readonly("kr_f_cpp", &PlantHydraulicParameters::kr_f)
             .def_readonly("kx_f_cpp", &PlantHydraulicParameters::kx_f)
             .def_readwrite("psi_air", &PlantHydraulicParameters::psi_air);
@@ -1017,11 +1020,10 @@ PYBIND11_MODULE(plantbox, m) {
          */
         py::class_<PlantHydraulicModel, std::shared_ptr<PlantHydraulicModel>>(m, "PlantHydraulicModel")
             .def(py::init<std::shared_ptr<MappedSegments>, std::shared_ptr<PlantHydraulicParameters>>())
-
             .def("linearSystemMeunier",&PlantHydraulicModel::linearSystemMeunier, py::arg("simTime") , py::arg("sx") , py::arg("cells") = true)
             .def("getRadialFluxes", &PlantHydraulicModel::getRadialFluxes)
             .def("sumSegFluxes", &PlantHydraulicModel::sumSegFluxes)
-            .def_readwrite("rs", &PlantHydraulicModel::rs)
+            .def_readwrite("ms", &PlantHydraulicModel::ms)
             .def_readwrite("params", &PlantHydraulicModel::params)
             .def_readwrite("aI", &PlantHydraulicModel::aI)
             .def_readwrite("aJ", &PlantHydraulicModel::aJ)
@@ -1074,6 +1076,7 @@ PYBIND11_MODULE(plantbox, m) {
             .def_readwrite("EAL",&Photosynthesis::EAL)
             .def_readwrite("hrelL",&Photosynthesis::hrelL)
             .def_readwrite("pg",&Photosynthesis::pg)
+            .def_readwrite("vQlight", &Photosynthesis::vQlight)
             .def_readwrite("Qlight", &Photosynthesis::Qlight)
             .def_readwrite("Jw", &Photosynthesis::Jw)
             .def_readwrite("Ev", &Photosynthesis::Ev)

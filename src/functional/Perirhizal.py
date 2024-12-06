@@ -36,7 +36,22 @@ class PerirhizalPython(Perirhizal):
         self.lookup_table = None  # optional 4d look up table to find soil root interface potentials
         self.sp = None  # corresponding van gencuchten soil parameter
 
-    def soil_root_interface_potentials(self, rx, sx, inner_kr, rho, sp):
+    def set_soil(self, sp):
+        """ sets VG parameters, and no look up table (slow) """
+        vg.create_mfp_lookup(sp)
+        self.sp = sp
+        self.lookup_table = None
+
+    def open_lookup(self, filename):
+        """  opens a look-up table from a file to quickly find soil root interface potentials  """
+        npzfile = np.load(filename + ".npz")
+        interface = npzfile["interface"]
+        rx_, sx_, akr_, rho_ = npzfile["rx_"], npzfile["sx_"], npzfile["akr_"], npzfile["rho_"]
+        soil = npzfile["soil"]
+        self.lookup_table = RegularGridInterpolator((rx_, sx_, akr_, rho_), interface)  # method = "nearest" fill_value = None , bounds_error=False
+        self.sp = vg.Parameters(soil)
+
+    def soil_root_interface_potentials(self, rx, sx, inner_kr, rho):
         """
         finds matric potentials at the soil root interface for as all segments
         uses a look up tables if present (see create_lookup, and open_lookup) 
@@ -45,14 +60,12 @@ class PerirhizalPython(Perirhizal):
         sx             bulk soil matric potential [cm]
         inner_kr       root radius times hydraulic conductivity [cm/day] 
         rho            geometry factor [1] (outer_radius / inner_radius)
-        sp             soil van Genuchten parameters (type vg.Parameters), call 
-                       vg.create_mfp_lookup(sp) before 
         """
         assert len(rx) == len(sx) == len(inner_kr) == len(rho), "rx, sx, inner_kr, and rho must have the same length"
         if self.lookup_table:
             rsx = self.soil_root_interface_potentials_table(rx, sx, inner_kr, rho)
         else:
-            rsx = np.array([PerirhizalPython.soil_root_interface_(rx[i], sx[i], inner_kr[i], rho[i], sp) for i in range(0, len(rx))])
+            rsx = np.array([PerirhizalPython.soil_root_interface_(rx[i], sx[i], inner_kr[i], rho[i], self.sp) for i in range(0, len(rx))])
             rsx = rsx[:, 0]
         return rsx
 
@@ -65,8 +78,7 @@ class PerirhizalPython(Perirhizal):
         sx             bulk soil matric potential [cm]
         inner_kr       root radius times hydraulic conductivity [cm/day] 
         rho            geometry factor [1] (outer_radius / inner_radius)
-        sp             soil van Genuchten parameters (type vg.Parameters), call 
-                       vg.create_mfp_lookup(sp) before 
+        sp             soil parameter: van Genuchten parameter set (type vg.Parameters)
         """
         k_soilfun = lambda hsoil, hint: (vg.fast_mfp[sp](hsoil) - vg.fast_mfp[sp](hint)) / (hsoil - hint)
         # rho = outer_r / inner_r  # Eqn [5]
@@ -76,6 +88,90 @@ class PerirhizalPython(Perirhizal):
         fun = lambda x: (inner_kr * rx + b * sx * k_soilfun(sx, x)) / (b * k_soilfun(sx, x) + inner_kr) - x
         rsx = fsolve(fun, (rx + sx) / 2)
         return rsx
+
+    def create_lookup_mpi(self, filename, sp):
+        """      
+        Precomputes all soil root interface potentials for a specific soil type 
+        and saves results into a 4D lookup table
+        
+        filename       three files are written (filename, filename_, and filename_soil)
+        sp             van genuchten soil parameters, , call 
+                       vg.create_mfp_lookup(sp) before 
+        """
+        from mpi4py import MPI
+        import os
+        comm = MPI.COMM_WORLD
+        size = comm.Get_size()
+        rank = comm.Get_rank()
+
+        rxn = 150
+        rx_ = -np.logspace(np.log10(1.), np.log10(16000), rxn)
+        rx_ = rx_ + np.ones((rxn,))
+        rx_ = rx_[::-1]
+        sxn = 150
+        sx_ = -np.logspace(np.log10(1.), np.log10(16000), sxn)
+        sx_ = sx_ + np.ones((sxn,))
+        sx_ = sx_[::-1]
+        akrn = 100
+        akr_ = np.logspace(np.log10(1.e-7), np.log10(1.e-4), akrn)
+        rhon = 30
+        rho_ = np.logspace(np.log10(1.), np.log10(200.), rhon)
+
+        if rank == 0:
+            print(filename, "calculating", rxn * sxn * rhon * akrn, "supporting points on", size, "thread(s)")
+
+        work_size = rxn * sxn * akrn * rhon
+        count = work_size // size  # number of points for each process to analyze
+        remainder = work_size % size  # extra points if work_size is not a multiple of size
+
+        if rank < remainder:  # processes with rank < remainder analyze one extra point
+            start = rank * (count + 1)  # index of first point to analyze
+            stop = start + count + 1  # index of last point to analyze
+        else:
+            start = rank * count + remainder
+            stop = start + count
+
+        interface_local = np.zeros(stop - start)
+
+        # Loop over the range assigned to this rank
+        for index_, index in enumerate(range(start, stop)):
+            # Convert flat index to multi-dimensional indices
+            i = (index // (sxn * akrn * rhon)) % rxn
+            j = (index // (akrn * rhon)) % sxn
+            k = (index // rhon) % akrn
+            l = index % rhon
+
+            if rank == 0 and index_ % 100 == 0:  # to follow progress
+                print('at index', index_ + 1 , "/", stop - start, "on thread", rank)
+
+            rx = rx_[i]
+            sx = sx_[j]
+            akr = akr_[k]
+            rho = rho_[l]
+
+            interface_local[index_] = PerirhizalPython.soil_root_interface_(rx, sx, akr, rho, sp)
+
+        # data2share needs to use floats for Allgatherv with MPI.DOUBLE to work.
+        data2share = np.array(interface_local, dtype = np.float64)
+
+        # other data needed by comm.Allgatherv
+        all_sizes = np.full(size, count)
+        all_sizes[:remainder] += 1
+
+        offsets = np.zeros(len(all_sizes), dtype = np.int64)
+        offsets[1:] = np.cumsum(all_sizes)[:-1]
+        all_sizes = tuple(all_sizes)
+        offsets = tuple(offsets)
+
+        # share the vectors
+        interface = np.zeros(work_size)
+        comm.Allgatherv([data2share, MPI.DOUBLE], [interface, all_sizes, offsets, MPI.DOUBLE])
+
+        if rank == 0:
+            interface = interface.reshape(rxn, sxn, akrn, rhon)  # reset shape
+            np.savez(filename, interface = interface, rx_ = rx_, sx_ = sx_, akr_ = akr_, rho_ = rho_, soil = list(sp))
+            self.lookup_table = RegularGridInterpolator((rx_, sx_, akr_, rho_), interface)
+            self.sp = sp
 
     def create_lookup(self, filename, sp):
         """      
@@ -109,17 +205,6 @@ class PerirhizalPython(Perirhizal):
         self.lookup_table = RegularGridInterpolator((rx_, sx_, akr_, rho_), interface)
         self.sp = sp
 
-    def open_lookup(self, filename):
-        """ 
-        Opens a look-up table from a file to quickly find soil root interface potentials 
-        """
-        npzfile = np.load(filename + ".npz")
-        interface = npzfile["interface"]
-        rx_, sx_, akr_, rho_ = npzfile["rx_"], npzfile["sx_"], npzfile["akr_"], npzfile["rho_"]
-        soil = npzfile["soil"]
-        self.lookup_table = RegularGridInterpolator((rx_, sx_, akr_, rho_), interface)  # method = "nearest" fill_value = None , bounds_error=False
-        self.sp = vg.Parameters(soil)
-
     def soil_root_interface_potentials_table(self, rx, sx, inner_kr_, rho_):
         """
         finds potential at the soil root interface using a lookup table
@@ -133,11 +218,19 @@ class PerirhizalPython(Perirhizal):
         try:
             rsx = self.lookup_table((rx, sx, inner_kr_ , rho_))
         except:
-            print("Look up failed: ")
-            print("rx", np.min(rx), np.max(rx))  # 0, -16000
-            print("sx", np.min(sx), np.max(loamsx))  # 0, -16000
-            print("inner_kr", np.min(inner_kr_), np.max(inner_kr_))  # 1.e-7 - 1.e-4
-            print("rho", np.min(rho_), np.max(rho_))  # 1. - 200.
+            print("PerirhizalPython.soil_root_interface_potentials_table(): table look up failed, value exceeds table")
+            #
+            if np.max(rx) > 0: print("xylem matric potential positive", np.max(rx), "at", np.argmax(rx))
+            if np.min(rx) < -16000: print("xylem matric potential under -16000 cm", np.min(rx), "at", np.argmin(rx))
+            if np.max(sx) > 0: print("soil matric potential positive", np.max(sx), "at", np.argmax(sx))
+            if np.min(sx) < -16000: print("soil matric potential under -16000 cm", np.min(sx), "at", np.argmin(sx))
+            if np.min(inner_kr_) < 1.e-7: print("radius times radial conductivity below 1.e-7", np.min(inner_kr_), "at", np.argmin(inner_kr_))
+            if np.max(inner_kr_) > 1.e-4: print("radius times radial conductivity above 1.e-4", np.max(inner_kr_), "at", np.argmax(inner_kr_))
+            if np.min(rho_) < 1: print("geometry factor below 1", np.min(rho_), "at", np.argmin(rho_))
+            if np.max(rho_) > 200: print("geometry factor above 200", np.max(rho_), "at", np.argmax(rho_))
+            print("???")
+            print("rx", np.min(rx), np.max(rx), "sx", np.min(sx), np.max(sx), "inner_kr", np.min(inner_kr_), np.max(inner_kr_), "rho", np.min(rho_), np.max(rho_))
+
         return rsx
 
     def get_cell_bounds(self, i:int, j:int, k:int):
@@ -557,8 +650,22 @@ if __name__ == "__main__":
     hydrus_sandyloam = [0.065, 0.41, 0.075, 1.89, 106.1]
 
     filename = "hydrus_loam"
-    sp = vg.Parameters(hydrus_loam)
-    vg.create_mfp_lookup(sp)
+    # sp = vg.Parameters(hydrus_loam)
+    # vg.create_mfp_lookup(sp)
     peri = PerirhizalPython()
-    peri.create_lookup(filename, sp)  # takes some hours
-    peri.open_lookup(filename)
+    # peri.create_lookup(filename, sp)  # takes some hours
+    # peri.open_lookup(filename)
+    
+    peri.set_soil(vg.Parameters(hydrus_loam))
+    a = 0.1 # cm
+    kr = 1.73e-4  # [1/day]
+    rx = -15000 # cm
+    sx = 0. # cm
+    rho = 1 / a
+    inner_kr = a*kr 
+    rsx = peri.soil_root_interface_potentials([rx], [sx], [inner_kr], [rho])
+    print("root soil interface", rsx, "cm")
+    print("results into a flux of", kr*2*a*np.pi*(rsx-rx), "cm3/day")
+    
+    
+    
