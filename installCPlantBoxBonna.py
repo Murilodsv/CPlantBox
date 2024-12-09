@@ -80,6 +80,8 @@ else:
     if not (GitBranch in str(CurrentBranch.stdout)):
         UpdateBranch = subprocess.run(['git','checkout',GitBranch], capture_output=True)
         assert UpdateBranch.returncode==0, f'Could not checkout to branch={GitBranch}. Please make sure it exists in remote URL={GitRepo}'
+    else:
+        subprocess.run(["git", "pull"])
     print("-- Skip cloning CPlantBox because the folder already exists.")
 
 # fetch submodules
