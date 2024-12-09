@@ -66,15 +66,20 @@ show_message("(2/3) Step completed. All prerequistes found.")
 #################################################################
 
 # Adapted CPlantBox fork in stable master version for BonnaCluster
-GitRepo = "https://github.com/Murilodsv/CPlantBox.git"
+GitRepo   = "https://github.com/Murilodsv/CPlantBox.git"
+GitBranch = "bonna_hpc"
 if not os.path.exists("CPlantBox"):
-    subprocess.run(['git', 'clone', '--depth','1','-b', 'bonna_hpc', GitRepo])
+    subprocess.run(['git', 'clone', '--depth','1','-b', GitBranch, GitRepo])
     os.chdir("CPlantBox")
 else:
     os.chdir("CPlantBox")
-    RemoteURL = subprocess.run(["git", "config","--get","remote.origin.url", "."], capture_output=True)
+    RemoteURL = subprocess.run(["git", "config","--get","remote.origin.url", "."], capture_output=True)    
     if not (GitRepo in str(RemoteURL.stdout)):
         raise Exception('The local CPlantBox repository has a different remote origin:\n'+'local: '+str(RemoteURL.stdout.decode())+'desired: '+GitRepo)
+    CurrentBranch = subprocess.run(["git", "branch"],capture_output=True)
+    if not (GitBranch in str(CurrentBranch.stdout)):
+        UpdateBranch = subprocess.run(['git','checkout',GitBranch], capture_output=True)
+        assert UpdateBranch.returncode==0, f'Could not checkout to branch={GitBranch}. Please make sure it exists in remote URL={GitRepo}'
     print("-- Skip cloning CPlantBox because the folder already exists.")
 
 # fetch submodules

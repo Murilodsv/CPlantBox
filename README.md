@@ -9,7 +9,7 @@ To install in **BonnaHPC** navigate to the desired installation folder (e.g. ```
 
 ```bash
 #!/bin/bash
-wget -O installCPlantBoxBonna.py https://raw.githubusercontent.com/Murilodsv/CPlantBox/master/installCPlantBoxBonna.py
+wget -O installCPlantBoxBonna.py https://raw.githubusercontent.com/Murilodsv/CPlantBox/refs/heads/bonna_hpc/installCPlantBoxBonna.py
 
 module purge
 module load Python/3.8.2-GCCcore-9.3.0
